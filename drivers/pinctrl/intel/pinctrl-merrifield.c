@@ -564,6 +564,7 @@ static int mrfld_update_phys(struct mrfld_pinctrl *mp, unsigned int pin,
 	void __iomem *bufcfg;
 	phys_addr_t phys;
 	u32 v, value;
+	int ret;
 
 	bufcfg = mrfld_get_bufcfg(mp, pin);
 	value = readl(bufcfg);
@@ -571,7 +572,10 @@ static int mrfld_update_phys(struct mrfld_pinctrl *mp, unsigned int pin,
 	v = (value & ~mask) | (bits & mask);
 
 	phys = mrfld_get_phys(mp, pin);
-	return intel_scu_ipc_raw_command(cmd, 0, (u8 *)&v, 4, NULL, 0, phys, 0);
+	ret = intel_scu_ipc_raw_command(cmd, 0, (u8 *)&v, 4, NULL, 0, phys, 0);
+	if (ret)
+		dev_err(mp->dev, "Failed to set bufcfg via SCU IPC for pin %u (%d)\n", pin, ret);
+	return ret;
 }
 
 static int mrfld_get_groups_count(struct pinctrl_dev *pctldev)
@@ -682,6 +686,7 @@ static int mrfld_pinmux_set_mux(struct pinctrl_dev *pctldev,
 
 	if (protected) {
 		for (i = 0; i < grp->npins; i++)
+			/* TODO: We always return success, because rolling back is a challenge */
 			mrfld_update_phys(mp, grp->pins[i], bits, mask);
 		return 0;
 	}
